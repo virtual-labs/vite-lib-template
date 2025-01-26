@@ -1,0 +1,50 @@
+name: Deploy to vlabs CDN on Release
+
+on:
+  release:
+    types: [published]
+    # Only run this workflow when a release is published (not when a draft is created)
+
+env:
+  VLABS_BUILD_ENV: PROD
+    # VLABS_BUIL_ENV differentiates between a build for the testing branch (deployed on 
+    #  Github pages and one for main branch (deployed on AWS). Defaults to TEST
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout your repository using git
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build vite project
+        run: npm run build
+
+      - name: Set AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_PROD_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PROD_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync ./dist s3://test.vlabs.ac.in/template --delete
+        # vite builds to ./dist by default
+
+      # - name: invalidate cloudfront cache
+      #   run: |
+      #     aws cloudfront create-invalidation --distribution-id E30WVJ3VKJ8LAG --paths  "/template/vite-lib-template.js"
+
